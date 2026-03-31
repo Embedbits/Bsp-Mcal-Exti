@@ -1,10 +1,5 @@
-/*
- *    Mr.Nobody, COPYRIGHT (c) 2021
- *    ALL RIGHTS RESERVED
- *
- */
-
 /**
+ * \author Mr.Nobody
  * \file Exti_Types.h
  * \ingroup Exti
  * \brief Exti module global types definition

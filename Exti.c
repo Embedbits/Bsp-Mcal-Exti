@@ -1,10 +1,5 @@
-/*
- *    Mr.Nobody, COPYRIGHT (c) 2021
- *    ALL RIGHTS RESERVED
- *
- */
-
 /**
+ * \author Mr.Nobody
  * \file Exti.h
  * \ingroup Exti
  * \brief External Interrupt module common functionality
