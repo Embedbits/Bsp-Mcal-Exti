@@ -1,13 +1,8 @@
-# Include current directory for provide headers include
-set( Exti_IncludeDirs
-    ${CMAKE_CURRENT_SOURCE_DIR} 
-)
-
-
 # Set source files for library generation
 # All used function files shall be added here.
 set( Exti_LibSrcs
-    Exti.c )
+    Exti.c 
+)
 
 
 # Set public header files for the library
@@ -30,9 +25,12 @@ set( Exti_DependentLibs
 # Create library
 add_library(Exti_Lib STATIC ${Exti_LibSrcs})
 
+# Include necessary libraries
+target_link_libraries( Exti_Lib 
+    PRIVATE 
+    ${Exti_DependentLibs}
+)
 
-# Specify the public headers for the library
-set_target_properties( Exti_Lib PROPERTIES PUBLIC_HEADER "${Exti_PublicHeaders}" )
 
 # Directory for public headers (build interface)
 set(PUBLIC_HEADERS_DIR ${CMAKE_CURRENT_BINARY_DIR}/PublicHeaders)
@@ -50,14 +48,6 @@ foreach(PublicHeader IN LISTS Exti_PublicHeaders)
     )
     
 endforeach()
-
-
-# Include necessary libraries
-target_link_libraries( Exti_Lib 
-    PRIVATE 
-    ${Exti_DependentLibs}
-)
-
 
 target_include_directories( Exti_Lib 
     PUBLIC
