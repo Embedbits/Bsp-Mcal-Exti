@@ -1,42 +1,65 @@
-# Include current directory for provide headers include
-set( Exti_IncludeDirs
-    ${CMAKE_CURRENT_SOURCE_DIR} 
+# Template version: 0.0.1
+# Sets the version of CMakeLists.txt file.
+# Never, under any circumstances, change this line. It is used by
+# the module generation script to identify the template version.
+
+#======================== Library configuration ===============================#
+# Publicly included directories to provide headers include
+set( Exti_PublicIncludeDirs
+    
 )
 
 
-# Set source files for library generation
-# All used function files shall be added here.
-set( Exti_LibSrcs
-    Exti.c )
+# Privately included directories to provide headers include
+set( Exti_PrivateIncludeDirs
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 
-# Set public header files for the library
-# All header files used by other libraries shall be added here.
+# Source files list for current library generation
+set( Exti_SourceFiles
+    Exti.c 
+)
+
+
+# List of public header files provided by the current library
 set( Exti_PublicHeaders 
     Exti_Port.h 
-    Exti_Types.h
 )
 
 
-# Set dependent libraries
-# All libraries used by current target shall be added here.
-set( Exti_DependentLibs
+# List of dependent libraries that are publicly used by the current library
+set( Exti_PublicDependentLibs
     Ral_Lib
-    Nvic_Lib
-    Gpio_Lib
+Nvic_Lib
+Gpio_Lib 
 )
 
 
+# List of dependent libraries that are privately used by the current library
+set( Exti_PrivateDependentLibs
+     
+)
+
+
+#========================== Library generation ================================#
 # Create library
-add_library(Exti_Lib STATIC ${Exti_LibSrcs})
+add_library(Exti_Lib STATIC ${Exti_SourceFiles})
 
 
-# Specify the public headers for the library
-set_target_properties( Exti_Lib PROPERTIES PUBLIC_HEADER "${Exti_PublicHeaders}" )
+# Include necessary libraries to the target
+target_link_libraries( Exti_Lib
+    PUBLIC 
+        ${Exti_PublicDependentLibs} 
+    PRIVATE 
+        ${Exti_PrivateDependentLibs}
+)
 
-# Directory for public headers (build interface)
+
+# Set public headers directory path in build folder
 set(PUBLIC_HEADERS_DIR ${CMAKE_CURRENT_BINARY_DIR}/PublicHeaders)
 
+# Generates the public headers directory in build folder
 file(MAKE_DIRECTORY ${PUBLIC_HEADERS_DIR})
 
 # Process all public headers
@@ -52,22 +75,19 @@ foreach(PublicHeader IN LISTS Exti_PublicHeaders)
 endforeach()
 
 
-# Include necessary libraries
-target_link_libraries( Exti_Lib 
-    PRIVATE 
-    ${Exti_DependentLibs}
-)
-
-
-target_include_directories( Exti_Lib 
+# Set include directories for the created target
+target_include_directories( Exti_Lib
     PUBLIC
         $<BUILD_INTERFACE:${PUBLIC_HEADERS_DIR}>
         $<INSTALL_INTERFACE:include>
+        Exti_PublicIncludeDirs
     PRIVATE
-        ${Rcc_IncludeDirs}
+        ${Exti_IncludeDirs}
+        Exti_PrivateIncludeDirs
 )
 
 
+# Print status message
 message(STATUS "Exti_Lib library created")
 
 #========================= Documentation configuration ========================#
