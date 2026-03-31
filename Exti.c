@@ -267,22 +267,22 @@ exti_RequestState_t Exti_Init( exti_PeriphConfig_t * const extiConfig )
         }
 
         /*-5- Configure NVIC */
-        nvic_RequestState_t nvicReq = NVIC_STATE_ERROR;
+        nvic_RequestState_t nvicReq = NVIC_REQUEST_ERROR;
 
         nvicReq = Nvic_Set_PeriphIrq_Prio( exti_PinConf[ extiConfig->ExtiPin ].NvicIrqId, (nvic_IrqPrio_t)extiConfig->ExtiPriority );
-        if( NVIC_STATE_OK != nvicReq )
+        if( NVIC_REQUEST_OK != nvicReq )
         {
             return ( EXTI_REQUEST_ERROR );
         }
 
         nvicReq = Nvic_Set_PeriphIrq_Handler( exti_PinConf[ extiConfig->ExtiPin ].NvicIrqId, exti_PinConf[ extiConfig->ExtiPin ].NvicIsr );
-        if( NVIC_STATE_OK != nvicReq )
+        if( NVIC_REQUEST_OK != nvicReq )
         {
             return ( EXTI_REQUEST_ERROR );
         }
 
         nvicReq = Nvic_Set_PeriphIrq_Active( exti_PinConf[ extiConfig->ExtiPin ].NvicIrqId );
-        if( NVIC_STATE_OK != nvicReq )
+        if( NVIC_REQUEST_OK != nvicReq )
         {
             return ( EXTI_REQUEST_ERROR );
         }
@@ -339,16 +339,16 @@ exti_RequestState_t Exti_Deinit( exti_PeriphConfig_t * const extiConfig )
         LL_EXTI_DisableRisingTrig_0_31( exti_PinConf[ extiConfig->ExtiPin ].ExtiLine );
 
         /*-4- Configure NVIC */
-        nvic_RequestState_t nvicReq = NVIC_STATE_ERROR;
+        nvic_RequestState_t nvicReq = NVIC_REQUEST_ERROR;
 
         nvicReq = Nvic_Set_PeriphIrq_Handler( exti_PinConf[ extiConfig->ExtiPin ].NvicIrqId, EXTI_NULL_PTR );
-        if( NVIC_STATE_OK != nvicReq )
+        if( NVIC_REQUEST_OK != nvicReq )
         {
             return ( EXTI_REQUEST_ERROR );
         }
 
         nvicReq = Nvic_Set_PeriphIrq_Inactive( exti_PinConf[ extiConfig->ExtiPin ].NvicIrqId );
-        if( NVIC_STATE_OK != nvicReq )
+        if( NVIC_REQUEST_OK != nvicReq )
         {
             return ( EXTI_REQUEST_ERROR );
         }
