@@ -25,6 +25,7 @@ set( Exti_SourceFiles
 # List of public header files provided by the current library
 set( Exti_PublicHeaders 
     Exti_Port.h 
+    Exti_Types.h 
 )
 
 
