@@ -18,14 +18,14 @@ set( Exti_PrivateIncludeDirs
 
 # Source files list for current library generation
 set( Exti_SourceFiles
-    Exti.c 
+    Exti.c
 )
 
 
 # List of public header files provided by the current library
 set( Exti_PublicHeaders 
-    Exti_Port.h 
-    Exti_Types.h 
+    Exti_Port.h
+    Exti_Types.h
 )
 
 
@@ -39,7 +39,7 @@ set( Exti_PublicDependentLibs
 
 # List of dependent libraries that are privately used by the current library
 set( Exti_PrivateDependentLibs
-     
+    
 )
 
 
@@ -81,10 +81,9 @@ target_include_directories( Exti_Lib
     PUBLIC
         $<BUILD_INTERFACE:${PUBLIC_HEADERS_DIR}>
         $<INSTALL_INTERFACE:include>
-        Exti_PublicIncludeDirs
+        ${Exti_PublicIncludeDirs}
     PRIVATE
-        ${Exti_IncludeDirs}
-        Exti_PrivateIncludeDirs
+        ${Exti_PrivateIncludeDirs}
 )
 
 

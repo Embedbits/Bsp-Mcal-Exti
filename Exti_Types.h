@@ -1,4 +1,9 @@
 /**
+ * \defgroup Exti Exti
+ * \brief Exti module
+ */
+
+/**
  * \author Mr.Nobody
  * \file Exti_Types.h
  * \ingroup Exti

@@ -20,33 +20,23 @@ Different families are maintained in separate branches; users can switch to the 
 
 ### Module Information
 
-- ```c
-  exti_ModuleVersion_t Exti_Get_ModuleVersion ( void );
-  ```  
+- `exti_ModuleVersion_t Exti_Get_ModuleVersion ( void );`  
   Returns the current version of the EXTI module.
 
 ---
 
 ### Initialization
 
-  ```c
-- exti_RequestState_t Exti_Init ( exti_PeriphConfig_t * const extiConfig );
-  ```  
+- `exti_RequestState_t Exti_Init ( exti_PeriphConfig_t * const extiConfig );`  
   Initializes the EXTI peripheral with the provided configuration.
 
-  ```c
-- exti_RequestState_t Exti_Deinit ( exti_PeriphConfig_t * const extiConfig );
-  ```  
+- `exti_RequestState_t Exti_Deinit ( exti_PeriphConfig_t * const extiConfig );`  
   Deinitializes the EXTI peripheral and resets the configuration.
 
-  ```c
-- void Exti_Task ( void );
-  ```  
+- `void Exti_Task ( void );`  
   Handles EXTI-related periodic tasks (if required by the implementation).
 
-  ```c
-- exti_RequestState_t Exti_Get_DefaultConfig ( exti_PeriphConfig_t * const extiConfig );
-  ```  
+- `exti_RequestState_t Exti_Get_DefaultConfig ( exti_PeriphConfig_t * const extiConfig );`  
   Retrieves a default configuration structure for EXTI initialization.
 
 ---
