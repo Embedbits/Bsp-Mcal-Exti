@@ -74,6 +74,9 @@ static void Exti_Line15_IsrHandler( void );
 /** Value of patch version of SW module */
 #define EXTI_PATCH_VERSION           ( 0u )
 
+/** Default interrupt priority used by \ref Exti_Get_DefaultConfig */
+#define EXTI_DEFAULT_IRQ_PRIO        ( 10u )
+
 /** Maximum wait extie for configuration request confirmation */
 #define EXTI_EXTIEOUT_RAW               ( 0x84FCB )
 
@@ -181,23 +184,34 @@ exti_ModuleVersion_t Exti_Get_ModuleVersion( void )
 /**
  * \brief Configures external interrupt line
  *
- * \param extiConfig [in]: Pointer to external interrupt configuration structure
+ * Configures the GPIO pin as input, connects it to the EXTI line, configures
+ * trigger edges, clears pending flags of the line and enables the line
+ * interrupt in EXTI and NVIC.
  *
- * \return State of request execution. Returns "OK" if request was success,
- *         otherwise return error.
+ * \param extiConfig [in]: Pointer to external interrupt configuration structure. Must not be NULL.
+ *
+ * \return State of request execution. Returns \ref EXTI_REQUEST_OK if request was
+ *         success, otherwise returns \ref EXTI_REQUEST_ERROR.
  */
 exti_RequestState_t Exti_Init( exti_PeriphConfig_t * const extiConfig )
 {
     exti_RequestState_t retState = EXTI_REQUEST_ERROR;
 
-    if( EXTI_NULL_PTR != extiConfig )
+    if( ( EXTI_NULL_PTR             != extiConfig                  ) &&
+        ( EXTI_PIN_CNT               > extiConfig->ExtiPin         ) &&
+        ( EXTI_PORT_CNT              > extiConfig->ExtiPort        ) &&
+        ( EXTI_PIN_PULL_DOWN        >= extiConfig->ExtiPinPull     ) &&
+        ( EXTI_PIN_SPEED_VERY_HIGH  >= extiConfig->ExtiPinSpeed    ) &&
+        ( EXTI_TRIGGER_EDGE_BOTH    >= extiConfig->ExtiTriggerEdge )    )
     {
+        const exti_PinId_t  pinId            = extiConfig->ExtiPin;
+        const uint32_t      extiLine         = exti_PinConf[ pinId ].ExtiLine;
         gpio_RequestState_t gpioRequestState = GPIO_REQUEST_ERROR;
-
-        gpio_Config_t gpioConfig = { 0u };
+        nvic_RequestState_t nvicReq          = NVIC_REQUEST_ERROR;
+        gpio_Config_t       gpioConfig       = { 0u };
 
         gpioConfig.PortId  = exti_PortConf[ extiConfig->ExtiPort ].GpioPortId;
-        gpioConfig.PinId   = exti_PinConf[ extiConfig->ExtiPin ].GpioPinId;
+        gpioConfig.PinId   = exti_PinConf[ pinId ].GpioPinId;
         gpioConfig.PinMode = GPIO_PIN_MODE_INPUT;
 
         if( EXTI_PIN_PULL_DOWN == extiConfig->ExtiPinPull )
@@ -225,61 +239,89 @@ exti_RequestState_t Exti_Init( exti_PeriphConfig_t * const extiConfig )
         {
             gpioConfig.PinSpeed = GPIO_PIN_SPEED_HIGH;
         }
-        else if( EXTI_PIN_SPEED_VERY_HIGH == extiConfig->ExtiPinSpeed )
+        else
         {
             gpioConfig.PinSpeed = GPIO_PIN_SPEED_VERY_HIGH;
         }
 
-        /* Store ISR callback address */
-        exti_UserCallback[ extiConfig->ExtiPin ].extiIsrCallback = extiConfig->ExtiCallback;
-
+        /* -1- Configure GPIO pin as input */
         gpioRequestState = Gpio_Init( &gpioConfig );
-        if( GPIO_REQUEST_ERROR == gpioRequestState )
+
+        if( GPIO_REQUEST_OK == gpioRequestState )
         {
-            return ( EXTI_REQUEST_ERROR );
+            /* Line interrupt is disabled during configuration */
+            LL_EXTI_DisableIT_0_31( extiLine );
+
+            /* Store ISR callback address */
+            exti_UserCallback[ pinId ].extiIsrCallback = extiConfig->ExtiCallback;
+
+            /* -2- Connect External Line to the GPIO */
+            LL_EXTI_SetEXTISource( exti_PortConf[ extiConfig->ExtiPort ].SysPortReg, exti_PinConf[ pinId ].SysLine );
+
+            /* -3- Configure trigger edges */
+            LL_EXTI_DisableFallingTrig_0_31( extiLine );
+            LL_EXTI_DisableRisingTrig_0_31( extiLine );
+
+            if( ( EXTI_TRIGGER_EDGE_FALLING == extiConfig->ExtiTriggerEdge ) ||
+                ( EXTI_TRIGGER_EDGE_BOTH    == extiConfig->ExtiTriggerEdge )    )
+            {
+                LL_EXTI_EnableFallingTrig_0_31( extiLine );
+            }
+            else
+            {
+                /* Falling edge is not used */
+            }
+
+            if( ( EXTI_TRIGGER_EDGE_RAISING == extiConfig->ExtiTriggerEdge ) ||
+                ( EXTI_TRIGGER_EDGE_BOTH    == extiConfig->ExtiTriggerEdge )    )
+            {
+                LL_EXTI_EnableRisingTrig_0_31( extiLine );
+            }
+            else
+            {
+                /* Rising edge is not used */
+            }
+
+            /* -4- Clear pending flags of previous configuration and enable line interrupt */
+            LL_EXTI_ClearFallingFlag_0_31( extiLine );
+            LL_EXTI_ClearRisingFlag_0_31( extiLine );
+
+            LL_EXTI_EnableIT_0_31( extiLine );
+
+            /* -5- Configure NVIC */
+            nvicReq = Nvic_Set_PeriphIrq_Prio( exti_PinConf[ pinId ].NvicIrqId, (nvic_IrqPrio_t)extiConfig->ExtiPriority );
+        }
+        else
+        {
+            /* GPIO configuration failed */
+            nvicReq = NVIC_REQUEST_ERROR;
         }
 
-        /* -2- Connect External Line to the GPIO*/
-        LL_EXTI_SetEXTISource( exti_PortConf[ extiConfig->ExtiPort ].SysPortReg, exti_PinConf[ extiConfig->ExtiPin ].SysLine );
-
-        /*-3- Enable a falling trigger EXTI line 13 Interrupt */
-        LL_EXTI_EnableIT_0_31( exti_PinConf[ extiConfig->ExtiPin ].ExtiLine );
-
-        /* -4- Disable both triggers before configuration */
-        LL_EXTI_DisableFallingTrig_0_31( exti_PinConf[ extiConfig->ExtiPin ].ExtiLine );
-        LL_EXTI_DisableRisingTrig_0_31( exti_PinConf[ extiConfig->ExtiPin ].ExtiLine );
-
-        if( ( EXTI_TRIGGER_EDGE_FALLING == extiConfig->ExtiTriggerEdge ) ||
-            ( EXTI_TRIGGER_EDGE_BOTH    == extiConfig->ExtiTriggerEdge )    )
+        if( NVIC_REQUEST_OK == nvicReq )
         {
-            LL_EXTI_EnableFallingTrig_0_31( exti_PinConf[ extiConfig->ExtiPin ].ExtiLine );
+            nvicReq = Nvic_Set_PeriphIrq_Handler( exti_PinConf[ pinId ].NvicIrqId, exti_PinConf[ pinId ].NvicIsr );
+        }
+        else
+        {
+            /* Error during initialization process */
         }
 
-        if( ( EXTI_TRIGGER_EDGE_RAISING == extiConfig->ExtiTriggerEdge ) ||
-            ( EXTI_TRIGGER_EDGE_BOTH    == extiConfig->ExtiTriggerEdge )    )
+        if( NVIC_REQUEST_OK == nvicReq )
         {
-            LL_EXTI_EnableRisingTrig_0_31( exti_PinConf[ extiConfig->ExtiPin ].ExtiLine );
+            nvicReq = Nvic_Set_PeriphIrq_Active( exti_PinConf[ pinId ].NvicIrqId );
+        }
+        else
+        {
+            /* Error during initialization process */
         }
 
-        /*-5- Configure NVIC */
-        nvic_RequestState_t nvicReq = NVIC_REQUEST_ERROR;
-
-        nvicReq = Nvic_Set_PeriphIrq_Prio( exti_PinConf[ extiConfig->ExtiPin ].NvicIrqId, (nvic_IrqPrio_t)extiConfig->ExtiPriority );
-        if( NVIC_REQUEST_OK != nvicReq )
+        if( NVIC_REQUEST_OK == nvicReq )
         {
-            return ( EXTI_REQUEST_ERROR );
+            retState = EXTI_REQUEST_OK;
         }
-
-        nvicReq = Nvic_Set_PeriphIrq_Handler( exti_PinConf[ extiConfig->ExtiPin ].NvicIrqId, exti_PinConf[ extiConfig->ExtiPin ].NvicIsr );
-        if( NVIC_REQUEST_OK != nvicReq )
+        else
         {
-            return ( EXTI_REQUEST_ERROR );
-        }
-
-        nvicReq = Nvic_Set_PeriphIrq_Active( exti_PinConf[ extiConfig->ExtiPin ].NvicIrqId );
-        if( NVIC_REQUEST_OK != nvicReq )
-        {
-            return ( EXTI_REQUEST_ERROR );
+            retState = EXTI_REQUEST_ERROR;
         }
     }
     else
@@ -294,58 +336,59 @@ exti_RequestState_t Exti_Init( exti_PeriphConfig_t * const extiConfig )
 /**
  * \brief Configures external interrupt line to default values and deactivate it.
  *
- * \param extiConfig [in]: Pointer to external interrupt configuration structure
+ * Disables the line interrupt in NVIC and EXTI, disables both trigger edges,
+ * clears pending flags, removes user callback and configures the pin as analog.
+ * NVIC handler stays registered (NVIC module does not accept NULL handler), it
+ * is not called while the NVIC line is disabled.
  *
- * \return State of request execution. Returns "OK" if request was success,
- *         otherwise return error.
+ * \param extiConfig [in]: Pointer to external interrupt configuration structure. Must not be NULL.
+ *
+ * \return State of request execution. Returns \ref EXTI_REQUEST_OK if request was
+ *         success, otherwise returns \ref EXTI_REQUEST_ERROR.
  */
 exti_RequestState_t Exti_Deinit( exti_PeriphConfig_t * const extiConfig )
 {
     exti_RequestState_t retState = EXTI_REQUEST_ERROR;
 
-    if( EXTI_NULL_PTR != extiConfig )
+    if( ( EXTI_NULL_PTR != extiConfig           ) &&
+        ( EXTI_PIN_CNT   > extiConfig->ExtiPin  ) &&
+        ( EXTI_PORT_CNT  > extiConfig->ExtiPort )    )
     {
-        gpio_RequestState_t gpioRequestState = GPIO_REQUEST_ERROR;
+        const exti_PinId_t        pinId            = extiConfig->ExtiPin;
+        const uint32_t            extiLine         = exti_PinConf[ pinId ].ExtiLine;
+        gpio_RequestState_t       gpioRequestState = GPIO_REQUEST_ERROR;
+        gpio_Config_t             gpioConfig       = { 0u };
 
-        gpio_Config_t gpioConfig = { 0u };
+        /* -1- Disable interrupt in NVIC */
+        const nvic_RequestState_t nvicReq = Nvic_Set_PeriphIrq_Inactive( exti_PinConf[ pinId ].NvicIrqId );
 
+        /* -2- Disable EXTI line interrupt and triggers, clear pending flags */
+        LL_EXTI_DisableIT_0_31( extiLine );
+        LL_EXTI_DisableFallingTrig_0_31( extiLine );
+        LL_EXTI_DisableRisingTrig_0_31( extiLine );
+        LL_EXTI_ClearFallingFlag_0_31( extiLine );
+        LL_EXTI_ClearRisingFlag_0_31( extiLine );
+
+        /* Remove ISR callback address */
+        exti_UserCallback[ pinId ].extiIsrCallback = EXTI_NULL_PTR;
+
+        /* -3- Configure GPIO pin as analog (default state) */
         gpioConfig.PortId   = exti_PortConf[ extiConfig->ExtiPort ].GpioPortId;
-        gpioConfig.PinId    = exti_PinConf[ extiConfig->ExtiPin ].GpioPinId;
+        gpioConfig.PinId    = exti_PinConf[ pinId ].GpioPinId;
         gpioConfig.PinMode  = GPIO_PIN_MODE_ANALOG;
         gpioConfig.PinPull  = GPIO_PIN_PULL_NONE;
         gpioConfig.PinSpeed = GPIO_PIN_SPEED_LOW;
 
-        /* Store ISR callback address */
-        exti_UserCallback[ extiConfig->ExtiPin ].extiIsrCallback = EXTI_NULL_PTR;
-
         gpioRequestState = Gpio_Init( &gpioConfig );
-        if( GPIO_REQUEST_ERROR == gpioRequestState )
+
+        if( ( NVIC_REQUEST_OK == nvicReq          ) &&
+            ( GPIO_REQUEST_OK == gpioRequestState )    )
         {
-            return ( EXTI_REQUEST_ERROR );
+            retState = EXTI_REQUEST_OK;
         }
-
-        /* -2- Connect External Line to the GPIO*/
-        LL_EXTI_SetEXTISource( exti_PortConf[ extiConfig->ExtiPort ].SysPortReg, exti_PinConf[ extiConfig->ExtiPin ].SysLine );
-
-        /*-3- Enable a falling trigger EXTI line 13 Interrupt */
-        LL_EXTI_DisableIT_0_31( exti_PinConf[ extiConfig->ExtiPin ].ExtiLine );
-
-        LL_EXTI_DisableFallingTrig_0_31( exti_PinConf[ extiConfig->ExtiPin ].ExtiLine );
-        LL_EXTI_DisableRisingTrig_0_31( exti_PinConf[ extiConfig->ExtiPin ].ExtiLine );
-
-        /*-4- Configure NVIC */
-        nvic_RequestState_t nvicReq = NVIC_REQUEST_ERROR;
-
-        nvicReq = Nvic_Set_PeriphIrq_Handler( exti_PinConf[ extiConfig->ExtiPin ].NvicIrqId, EXTI_NULL_PTR );
-        if( NVIC_REQUEST_OK != nvicReq )
+        else
         {
-            return ( EXTI_REQUEST_ERROR );
-        }
-
-        nvicReq = Nvic_Set_PeriphIrq_Inactive( exti_PinConf[ extiConfig->ExtiPin ].NvicIrqId );
-        if( NVIC_REQUEST_OK != nvicReq )
-        {
-            return ( EXTI_REQUEST_ERROR );
+            retState = EXTI_REQUEST_ERROR;
         }
     }
     else
@@ -379,13 +422,13 @@ void Exti_Task( void )
  * No internal pull up or down used
  * Pin speed is set to low
  * Falling edge in pin is set as trigger
- * Priority is set to 10
+ * Priority is set to \ref EXTI_DEFAULT_IRQ_PRIO
  * No callback address is used
  *
- * \param extiConfig [out]: Pointer to external interrupt configuration structure
+ * \param extiConfig [out]: Pointer to external interrupt configuration structure. Must not be NULL.
  *
- * \return State of request execution. Returns "OK" if request was success,
- *         otherwise return error.
+ * \return State of request execution. Returns \ref EXTI_REQUEST_OK if request was
+ *         success, otherwise returns \ref EXTI_REQUEST_ERROR.
  */
 exti_RequestState_t Exti_Get_DefaultConfig( exti_PeriphConfig_t * const extiConfig )
 {
@@ -397,9 +440,11 @@ exti_RequestState_t Exti_Get_DefaultConfig( exti_PeriphConfig_t * const extiConf
         extiConfig->ExtiPort        = EXTI_PORT_A;
         extiConfig->ExtiPinPull     = EXTI_PIN_PULL_NONE;
         extiConfig->ExtiPinSpeed    = EXTI_PIN_SPEED_LOW;
-        extiConfig->ExtiPriority    = 10u;
+        extiConfig->ExtiPriority    = EXTI_DEFAULT_IRQ_PRIO;
         extiConfig->ExtiTriggerEdge = EXTI_TRIGGER_EDGE_FALLING;
         extiConfig->ExtiCallback    = EXTI_NULL_PTR;
+
+        retState = EXTI_REQUEST_OK;
     }
     else
     {
@@ -411,35 +456,64 @@ exti_RequestState_t Exti_Get_DefaultConfig( exti_PeriphConfig_t * const extiConf
 
 /* =========================== LOCAL FUNCTIONS ============================== */
 
+/**
+ * \brief Common handler of external interrupt lines.
+ *
+ * Reads rising / falling edge flags of the line, clears every active flag and
+ * calls user callback with detected edge (both edges are handled if both flags
+ * are active). Flag is cleared before the callback, so a new edge during the
+ * callback is not lost. Flags are cleared also without registered callback.
+ *
+ * \param lineId [in]: External interrupt line identification, value from \ref exti_PinId_t.
+ */
 static inline void Exti_IsrHandler( exti_PinId_t lineId )
 {
-    uint32_t fallingFlagState = LL_EXTI_ReadFallingFlag_0_31( exti_PinConf[ lineId ].ExtiLine );
-    uint32_t raisingFlagState = LL_EXTI_ReadRisingFlag_0_31( exti_PinConf[ lineId ].ExtiLine );
+    const uint32_t                 extiLine         = exti_PinConf[ lineId ].ExtiLine;
+    const uint32_t                 raisingFlagState = LL_EXTI_ReadRisingFlag_0_31( extiLine );
+    const uint32_t                 fallingFlagState = LL_EXTI_ReadFallingFlag_0_31( extiLine );
+    exti_ExtiIsrCallback_t * const userCallback     = exti_UserCallback[ lineId ].extiIsrCallback;
 
     if( 0u != raisingFlagState )
     {
-        if( EXTI_NULL_PTR != exti_UserCallback[ lineId ].extiIsrCallback )
-        {
-            exti_UserCallback[ lineId ].extiIsrCallback( EXTI_TRIGGER_EDGE_RAISING );
+        LL_EXTI_ClearRisingFlag_0_31( extiLine );
 
-            LL_EXTI_ClearRisingFlag_0_31( exti_PinConf[ lineId ].ExtiLine );
+        if( EXTI_NULL_PTR != userCallback )
+        {
+            userCallback( EXTI_TRIGGER_EDGE_RAISING );
+        }
+        else
+        {
+            /* No user callback registered */
         }
     }
-    else if( 0u != fallingFlagState )
+    else
     {
-        if( EXTI_NULL_PTR != exti_UserCallback[ lineId ].extiIsrCallback )
-        {
-            exti_UserCallback[ lineId ].extiIsrCallback( EXTI_TRIGGER_EDGE_FALLING );
+        /* Rising edge not detected */
+    }
 
-            LL_EXTI_ClearFallingFlag_0_31( exti_PinConf[ lineId ].ExtiLine );
+    if( 0u != fallingFlagState )
+    {
+        LL_EXTI_ClearFallingFlag_0_31( extiLine );
+
+        if( EXTI_NULL_PTR != userCallback )
+        {
+            userCallback( EXTI_TRIGGER_EDGE_FALLING );
         }
+        else
+        {
+            /* No user callback registered */
+        }
+    }
+    else
+    {
+        /* Falling edge not detected */
     }
 }
 
 /* =========================== INTERRUPT HANDLERS =========================== */
 
 /**
- * \brief External interrupt line 1 interrupt service  routine
+ * \brief External interrupt line 0 interrupt service routine
  */
 static void Exti_Line0_IsrHandler( void )
 {
@@ -448,7 +522,7 @@ static void Exti_Line0_IsrHandler( void )
 
 
 /**
- * \brief External interrupt line 1 interrupt service  routine
+ * \brief External interrupt line 1 interrupt service routine
  */
 static void Exti_Line1_IsrHandler( void )
 {
@@ -457,7 +531,7 @@ static void Exti_Line1_IsrHandler( void )
 
 
 /**
- * \brief External interrupt line 2 interrupt service  routine
+ * \brief External interrupt line 2 interrupt service routine
  */
 static void Exti_Line2_IsrHandler( void )
 {
@@ -466,7 +540,7 @@ static void Exti_Line2_IsrHandler( void )
 
 
 /**
- * \brief External interrupt line 3 interrupt service  routine
+ * \brief External interrupt line 3 interrupt service routine
  */
 static void Exti_Line3_IsrHandler( void )
 {
@@ -475,7 +549,7 @@ static void Exti_Line3_IsrHandler( void )
 
 
 /**
-* \brief External interrupt line 4 interrupt service  routine
+ * \brief External interrupt line 4 interrupt service routine
  */
 static void Exti_Line4_IsrHandler( void )
 {
@@ -484,7 +558,7 @@ static void Exti_Line4_IsrHandler( void )
 
 
 /**
-* \brief External interrupt line 4 interrupt service  routine
+ * \brief External interrupt line 5 interrupt service routine
  */
 static void Exti_Line5_IsrHandler( void )
 {
@@ -492,7 +566,7 @@ static void Exti_Line5_IsrHandler( void )
 }
 
 /**
-* \brief External interrupt line 4 interrupt service  routine
+ * \brief External interrupt line 6 interrupt service routine
  */
 static void Exti_Line6_IsrHandler( void )
 {
@@ -501,7 +575,7 @@ static void Exti_Line6_IsrHandler( void )
 
 
 /**
-* \brief External interrupt line 4 interrupt service  routine
+ * \brief External interrupt line 7 interrupt service routine
  */
 static void Exti_Line7_IsrHandler( void )
 {
@@ -510,7 +584,7 @@ static void Exti_Line7_IsrHandler( void )
 
 
 /**
-* \brief External interrupt line 4 interrupt service  routine
+ * \brief External interrupt line 8 interrupt service routine
  */
 static void Exti_Line8_IsrHandler( void )
 {
@@ -519,7 +593,7 @@ static void Exti_Line8_IsrHandler( void )
 
 
 /**
-* \brief External interrupt line 4 interrupt service  routine
+ * \brief External interrupt line 9 interrupt service routine
  */
 static void Exti_Line9_IsrHandler( void )
 {
@@ -528,7 +602,7 @@ static void Exti_Line9_IsrHandler( void )
 
 
 /**
-* \brief External interrupt line 4 interrupt service  routine
+ * \brief External interrupt line 10 interrupt service routine
  */
 static void Exti_Line10_IsrHandler( void )
 {
@@ -537,7 +611,7 @@ static void Exti_Line10_IsrHandler( void )
 
 
 /**
-* \brief External interrupt line 4 interrupt service  routine
+ * \brief External interrupt line 11 interrupt service routine
  */
 static void Exti_Line11_IsrHandler( void )
 {
@@ -546,7 +620,7 @@ static void Exti_Line11_IsrHandler( void )
 
 
 /**
-* \brief External interrupt line 4 interrupt service  routine
+ * \brief External interrupt line 12 interrupt service routine
  */
 static void Exti_Line12_IsrHandler( void )
 {
@@ -555,7 +629,7 @@ static void Exti_Line12_IsrHandler( void )
 
 
 /**
-* \brief External interrupt line 4 interrupt service  routine
+ * \brief External interrupt line 13 interrupt service routine
  */
 static void Exti_Line13_IsrHandler( void )
 {
@@ -564,7 +638,7 @@ static void Exti_Line13_IsrHandler( void )
 
 
 /**
-* \brief External interrupt line 4 interrupt service  routine
+ * \brief External interrupt line 14 interrupt service routine
  */
 static void Exti_Line14_IsrHandler( void )
 {
@@ -573,7 +647,7 @@ static void Exti_Line14_IsrHandler( void )
 
 
 /**
-* \brief External interrupt line 4 interrupt service  routine
+ * \brief External interrupt line 15 interrupt service routine
  */
 static void Exti_Line15_IsrHandler( void )
 {
