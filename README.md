@@ -16,6 +16,19 @@ Different families are maintained in separate branches; users can switch to the 
 
 ---
 
+## STM32L4 / STM32L4+ specifics
+
+- GPIO lines 0 - 15 of ports A - I (ports guarded by device header). The port is selected in
+  SYSCFG EXTICR - SYSCFG clock is activated by `Exti_Init()`.
+- One pending register (PR1) for both edges. With both edges configured the reported edge is
+  derived from the pin level in the ISR (high - rising, low - falling).
+- Lines 5 - 9 share NVIC vector EXTI9_5, lines 10 - 15 share EXTI15_10. The priority of a shared
+  vector is the priority of the last initialized line, the vector is disabled by `Exti_Deinit()`
+  only when no other line of the group is enabled.
+- Every ISR ends with DSB (Cortex-M4 r0p1 erratum 838869).
+
+---
+
 ## Public API
 
 ### Module Information
