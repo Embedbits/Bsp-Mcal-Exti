@@ -18,13 +18,14 @@ set( Exti_PrivateIncludeDirs
 
 # Source files list for current library generation
 set( Exti_SourceFiles
-    Exti.c 
+    Exti.c
 )
 
 
 # List of public header files provided by the current library
 set( Exti_PublicHeaders 
-    Exti_Port.h 
+    Exti_Port.h
+    Exti_Types.h
 )
 
 
@@ -38,7 +39,7 @@ set( Exti_PublicDependentLibs
 
 # List of dependent libraries that are privately used by the current library
 set( Exti_PrivateDependentLibs
-     
+    
 )
 
 
@@ -80,10 +81,9 @@ target_include_directories( Exti_Lib
     PUBLIC
         $<BUILD_INTERFACE:${PUBLIC_HEADERS_DIR}>
         $<INSTALL_INTERFACE:include>
-        Exti_PublicIncludeDirs
+        ${Exti_PublicIncludeDirs}
     PRIVATE
-        ${Exti_IncludeDirs}
-        Exti_PrivateIncludeDirs
+        ${Exti_PrivateIncludeDirs}
 )
 
 
@@ -93,4 +93,14 @@ message(STATUS "Exti_Lib library created")
 #========================= Documentation configuration ========================#
 if(DOXYGEN_AVAILABLE STREQUAL "ON")
     Doxygen_AddPath("${CMAKE_CURRENT_SOURCE_DIR}/")
+endif()
+
+#========================= Unit tests configuration ===========================#
+if(UNIT_TESTING_AVAILABLE STREQUAL "ON")
+    UnitTesting_AddPath("${CMAKE_CURRENT_SOURCE_DIR}/Tests/UnitTests")
+endif()
+
+#===================== Integration tests configuration ========================#
+if(INTEGRATION_TESTING_AVAILABLE STREQUAL "ON")
+    IntegrationTesting_AddPath("${CMAKE_CURRENT_SOURCE_DIR}/Tests/IntegrationTests")
 endif()

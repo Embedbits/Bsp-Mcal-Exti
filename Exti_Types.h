@@ -1,4 +1,9 @@
 /**
+ * \defgroup Exti Exti
+ * \brief Exti module
+ */
+
+/**
  * \author Mr.Nobody
  * \file Exti_Types.h
  * \ingroup Exti
@@ -54,19 +59,20 @@ typedef enum
 }   exti_FunctionState_t;
 
 
-/** Enumeration used to signal request processing state */
-typedef enum
-{
-    EXTI_REQUEST_ERROR = 0u, /**< Processing request failed  */
-    EXTI_REQUEST_OK          /**< Processing request succeed */
-}   exti_RequestState_t;
-
 /** Flag states enumeration */
 typedef enum
 {
     EXTI_FLAG_INACTIVE = 0u, /**< Inactive flag state */
     EXTI_FLAG_ACTIVE         /**< Active flag state   */
 }   exti_FlagState_t;
+
+
+/** Enumeration used to signal request processing state */
+typedef enum
+{
+    EXTI_REQUEST_ERROR = 0u, /**< Processing request failed  */
+    EXTI_REQUEST_OK          /**< Processing request succeed */
+}   exti_RequestState_t;
 
 
 /** GPIO Pins identification enumeration */
