@@ -38,7 +38,10 @@ static void It_Exti_Callback        ( exti_TriggerEdge_t triggerEdge );
 /* ========================= SYMBOLIC CONSTANTS ============================= */
 
 /*----------------------------- Board configuration --------------------------*/
-#if defined(IT_BOARD_NUCLEO_H503RB) || defined(IT_BOARD_NUCLEO_H533RE)
+/* Boards are named by their MCU (IT_BOARD_<MCU>, name of the board from the detection) */
+#if defined(IT_BOARD_STM32H503xB) || \
+    defined(IT_BOARD_STM32H523xE) || \
+    defined(IT_BOARD_STM32H533xE)
 
     /** Arduino D7 (PA8) - not connected on the board */
     #define IT_EXTI_PORT                    ( EXTI_PORT_A )
@@ -50,7 +53,10 @@ static void It_Exti_Callback        ( exti_TriggerEdge_t triggerEdge );
     #define IT_EXTI_OTHER_PORT              ( EXTI_PORT_B )
     #define IT_EXTI_OTHER_GPIO_PORT         ( GPIO_PORT_B )
 
-#elif defined(IT_BOARD_NUCLEO_H563ZI) || defined(IT_BOARD_NUCLEO_H5E5ZJ)
+#elif defined(IT_BOARD_STM32H562xI) || \
+      defined(IT_BOARD_STM32H563xI) || \
+      defined(IT_BOARD_STM32H573xI) || \
+      defined(IT_BOARD_STM32H5E5xJ)
 
     /** Arduino D6 (PE9) - not connected on the board */
     #define IT_EXTI_PORT                    ( EXTI_PORT_E )

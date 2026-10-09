@@ -516,6 +516,44 @@ void Ut_Exti_Isr_NoCallback_ClearsFlagWithoutCall( void )
     TEST_ASSERT_EQUAL_HEX32( UT_EXTI_LINE_MASK( EXTI_PIN_5 ), EXTI->FPR1 );  /* Write-1-to-clear of own line */
 }
 
+/**
+ * \brief   ISR of every EXTI line reports the edge of its own line.
+ *
+ * \details For every line 0 - 15: registers are reset, the line is initialized on
+ *          port C with both edges, rising pending flag of the line and falling
+ *          pending flag of the next line are preset and the ISR registered for
+ *          the line is called.
+ *
+ * \par Expected results
+ * - User callback called once with EXTI_TRIGGER_EDGE_RAISING for every line
+ *   (the flag of the next line is ignored).
+ * - RPR1 keeps only the bit of the line (write-1-to-clear of own line).
+ */
+void Ut_Exti_Isr_AllLines_CallbackWithOwnLineEdge( void )
+{
+    for( uint32_t pinId = 0u; EXTI_PIN_CNT > pinId; pinId++ )
+    {
+        exti_PeriphConfig_t config   = Ut_Exti_Get_Config( (exti_PinId_t)pinId, EXTI_TRIGGER_EDGE_BOTH );
+        const uint32_t      nextLine = ( pinId + 1u ) % EXTI_PIN_CNT;
+
+        TEST_ASSERT_EQUAL( REGMEM_REQUEST_OK, RegMem_Reset() );
+        utExti_CallbackCnt = 0u;
+
+        Ut_Exti_Expect_Init( (exti_PinId_t)pinId, GPIO_PORT_C, GPIO_PIN_PULL_UP, GPIO_PIN_SPEED_HIGH, UT_EXTI_PRIO );
+        TEST_ASSERT_EQUAL( EXTI_REQUEST_OK, Exti_Init( &config ) );
+
+        EXTI->RPR1 = UT_EXTI_LINE_MASK( pinId );
+        EXTI->FPR1 = UT_EXTI_LINE_MASK( nextLine );
+
+        TEST_ASSERT_NOT_NULL( utExti_LineIsr[ pinId ] );
+        utExti_LineIsr[ pinId ]();
+
+        TEST_ASSERT_EQUAL_UINT32( 1u, utExti_CallbackCnt );
+        TEST_ASSERT_EQUAL( EXTI_TRIGGER_EDGE_RAISING, utExti_CallbackEdge[ 0 ] );
+        TEST_ASSERT_EQUAL_HEX32( UT_EXTI_LINE_MASK( pinId ), EXTI->RPR1 );
+    }
+}
+
 /* =========================== DEINITIALIZATION ============================= */
 
 /**
