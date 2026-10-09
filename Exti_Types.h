@@ -1,10 +1,15 @@
 /**
+ * \defgroup Exti Exti
+ * \brief Exti module
+ */
+
+/**
  * \author Mr.Nobody
  * \file Exti_Types.h
  * \ingroup Exti
  * \brief Exti module global types definition
  *
- * This file contains the types definitions used across the module and are 
+ * This file contains the types definitions used across the module and are
  * available for other modules through Port file.
  *
  */
@@ -68,10 +73,6 @@ typedef enum
 }   exti_FlagState_t;
 
 
-/** \brief Error ISR routine type definition */
-typedef void ( exti_ExtiIsrCallback_t )( void );
-
-
 /** GPIO Pins identification enumeration */
 typedef enum
 {
@@ -128,6 +129,9 @@ typedef enum
 #if defined(GPIOJ)
     EXTI_PORT_J,      /**< GPIO Port J */
 #endif
+#if defined(GPIOK)
+    EXTI_PORT_K,      /**< GPIO Port K */
+#endif
     EXTI_PORT_CNT
 }   exti_PortId_t;
 
@@ -141,6 +145,7 @@ typedef enum
 }   exti_PinPullCfg_t;
 
 
+/** Speed of the pin (input pin - affects only slew rate of a later output use) */
 typedef enum
 {
     EXTI_PIN_SPEED_LOW = 0u , /**< Select I/O low output speed    */
@@ -150,26 +155,42 @@ typedef enum
 }   exti_PinSpeed_t;
 
 
+/** Edge of the pin signal triggering the interrupt */
 typedef enum
 {
-    EXTI_TRIGGER_EDGE_FALLING = 0u,
-    EXTI_TRIGGER_EDGE_RAISING,
-    EXTI_TRIGGER_EDGE_BOTH
+    EXTI_TRIGGER_EDGE_FALLING = 0u, /**< Falling edge          */
+    EXTI_TRIGGER_EDGE_RAISING,      /**< Rising edge           */
+    EXTI_TRIGGER_EDGE_BOTH          /**< Rising and falling edge */
 }   exti_TriggerEdge_t;
 
 
+/**
+ * \brief User ISR callback type definition.
+ *
+ * Callback receives the detected edge - \ref EXTI_TRIGGER_EDGE_FALLING or
+ * \ref EXTI_TRIGGER_EDGE_RAISING.
+ *
+ * \note STM32G4 EXTI has one pending flag for both edges. With
+ *       \ref EXTI_TRIGGER_EDGE_BOTH the edge is derived from the pin level read
+ *       in the ISR (high - rising, low - falling).
+ */
+typedef void ( exti_ExtiIsrCallback_t )( exti_TriggerEdge_t );
+
+
+/** Interrupt priority of the EXTI line */
 typedef uint32_t exti_IrqPrio_t;
 
 
+/** External interrupt line configuration */
 typedef struct
 {
-    exti_PinId_t            ExtiPin;
-    exti_PortId_t           ExtiPort;
-    exti_PinPullCfg_t       ExtiPinPull;
-    exti_PinSpeed_t         ExtiPinSpeed;
-    exti_IrqPrio_t          ExtiPriority;
-    exti_TriggerEdge_t      ExtiTriggerEdge;
-    exti_ExtiIsrCallback_t *ExtiCallback;
+    exti_PinId_t            ExtiPin;         /**< Pin number (EXTI line)          */
+    exti_PortId_t           ExtiPort;        /**< GPIO port connected to the line */
+    exti_PinPullCfg_t       ExtiPinPull;     /**< Pull resistor of the pin        */
+    exti_PinSpeed_t         ExtiPinSpeed;    /**< Speed of the pin                */
+    exti_IrqPrio_t          ExtiPriority;    /**< NVIC priority of the line IRQ   */
+    exti_TriggerEdge_t      ExtiTriggerEdge; /**< Trigger edge(s)                 */
+    exti_ExtiIsrCallback_t *ExtiCallback;    /**< User callback, can be NULL      */
 }   exti_PeriphConfig_t;
 
 /* ========================== EXPORTED VARIABLES ============================ */
