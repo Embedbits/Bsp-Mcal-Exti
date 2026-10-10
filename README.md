@@ -20,33 +20,23 @@ Different families are maintained in separate branches; users can switch to the 
 
 ### Module Information
 
-- ```c
-  exti_ModuleVersion_t Exti_Get_ModuleVersion ( void );
-  ```  
+- `exti_ModuleVersion_t Exti_Get_ModuleVersion ( void );`  
   Returns the current version of the EXTI module.
 
 ---
 
 ### Initialization
 
-  ```c
-- exti_RequestState_t Exti_Init ( exti_PeriphConfig_t * const extiConfig );
-  ```  
+- `exti_RequestState_t Exti_Init ( exti_PeriphConfig_t * const extiConfig );`  
   Initializes the EXTI peripheral with the provided configuration.
 
-  ```c
-- exti_RequestState_t Exti_Deinit ( exti_PeriphConfig_t * const extiConfig );
-  ```  
+- `exti_RequestState_t Exti_Deinit ( exti_PeriphConfig_t * const extiConfig );`  
   Deinitializes the EXTI peripheral and resets the configuration.
 
-  ```c
-- void Exti_Task ( void );
-  ```  
+- `void Exti_Task ( void );`  
   Handles EXTI-related periodic tasks (if required by the implementation).
 
-  ```c
-- exti_RequestState_t Exti_Get_DefaultConfig ( exti_PeriphConfig_t * const extiConfig );
-  ```  
+- `exti_RequestState_t Exti_Get_DefaultConfig ( exti_PeriphConfig_t * const extiConfig );`  
   Retrieves a default configuration structure for EXTI initialization.
 
 ---
@@ -56,6 +46,10 @@ Different families are maintained in separate branches; users can switch to the 
 - The EXTI module is hardware dependent and must be configured per STM32 family branch.  
 - The **default configuration API** helps to ensure safe initialization.  
 - The `Task` function should be periodically called if asynchronous handling or background processing is implemented.  
+- STM32H7: the GPIO port of the line is selected in SYSCFG EXTICR, lines 5 - 9 share NVIC vector EXTI9_5 and
+  lines 10 - 15 share EXTI15_10 (priority of the last initialized line of the group).  
+- STM32H7R / H7S (Ral family STM32H7RS): the port is selected in SBS EXTICR (SBS clock), every line 0 - 15 has its
+  own NVIC vector EXTI0 - EXTI15, ports A - H and M - P.  
 
 ---
 
