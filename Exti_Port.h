@@ -4,7 +4,7 @@
  * \ingroup Exti
  * \brief Exti module public functionality
  *
- * This file contains all available public functionality, any other files shall 
+ * This file contains all available public functionality, any other files shall
  * not used outside of the module.
  *
  */
@@ -36,9 +36,17 @@ void                        Exti_Task                   ( void );
 
 exti_RequestState_t         Exti_Get_DefaultConfig      ( exti_PeriphConfig_t * const extiConfig );
 
+exti_RequestState_t         Exti_Set_LineActive         ( exti_LineId_t lineId,
+                                                          const exti_LineConfig_t * const lineConfig );
+exti_RequestState_t         Exti_Set_LineInactive       ( exti_LineId_t lineId );
+exti_RequestState_t         Exti_Set_LinePendingClear   ( exti_LineId_t lineId );
+
+exti_RequestState_t         Exti_Get_LineType           ( exti_LineId_t lineId, exti_LineType_t * const lineType );
+exti_RequestState_t         Exti_Get_LinePending        ( exti_LineId_t lineId,
+                                                          exti_TriggerEdge_t * const pendingEdge );
+
 #ifdef __cplusplus
 }
 #endif
 
 #endif /* EXTI_EXTI_PORT_H */
-

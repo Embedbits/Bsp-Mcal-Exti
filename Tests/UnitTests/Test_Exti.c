@@ -95,14 +95,14 @@ void tearDown( void )
  * \details Reads the module version structure.
  *
  * \par Expected results
- * - Version is 1.0.0 (Major 1, Minor 0, Patch 0).
+ * - Version is 1.1.0 (Major 1, Minor 1, Patch 0).
  */
 void Ut_Exti_Get_ModuleVersion_ReturnsVersion( void )
 {
     exti_ModuleVersion_t version = Exti_Get_ModuleVersion();
 
     TEST_ASSERT_EQUAL_UINT8( 1u, version.Major );
-    TEST_ASSERT_EQUAL_UINT8( 0u, version.Minor );
+    TEST_ASSERT_EQUAL_UINT8( 1u, version.Minor );
     TEST_ASSERT_EQUAL_UINT8( 0u, version.Patch );
 }
 
@@ -666,6 +666,457 @@ void Ut_Exti_Deinit_InvalidConfig_ReturnsErrorWithoutAccess( void )
     config = Ut_Exti_Get_Config( EXTI_PIN_5, EXTI_TRIGGER_EDGE_FALLING );
     config.ExtiPort = EXTI_PORT_CNT;
     TEST_ASSERT_EQUAL( EXTI_REQUEST_ERROR, Exti_Deinit( &config ) );
+}
+
+/* ========================= PERIPHERAL EVENT LINES ========================== */
+
+/**
+ * \brief   Exti_Set_LineActive() enables interrupt mask and trigger of a
+ *          configurable line.
+ *
+ * \details Activates line 16 (PVD/AVD, configurable) with interrupt mode and
+ *          both trigger edges.
+ *
+ * \par Expected results
+ * - EXTI_REQUEST_OK is returned.
+ * - RTSR1 and FTSR1 contain the line 16 bit, IMR1 contains the line 16 bit,
+ *   EMR1 is 0.
+ * - Pending flags RPR1 / FPR1 of line 16 are not touched (activation does not
+ *   clear pending, only \ref Exti_Set_LinePendingClear does).
+ */
+void Ut_Exti_Set_LineActive_ConfigurableInterrupt_SetsTriggerAndImr( void )
+{
+    exti_LineConfig_t lineConfig = { .LineMode = EXTI_LINE_MODE_INTERRUPT, .TriggerEdge = EXTI_TRIGGER_EDGE_BOTH };
+
+    EXTI->RPR1 = LL_EXTI_LINE_16;
+    EXTI->FPR1 = LL_EXTI_LINE_16;
+
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_OK, Exti_Set_LineActive( EXTI_LINE_PVD_AVD, &lineConfig ) );
+
+    TEST_ASSERT_EQUAL_HEX32( LL_EXTI_LINE_16, EXTI->RTSR1 );
+    TEST_ASSERT_EQUAL_HEX32( LL_EXTI_LINE_16, EXTI->FTSR1 );
+    TEST_ASSERT_EQUAL_HEX32( LL_EXTI_LINE_16, EXTI->IMR1 );
+    TEST_ASSERT_EQUAL_HEX32( 0u,              EXTI->EMR1 );
+    TEST_ASSERT_EQUAL_HEX32( LL_EXTI_LINE_16, EXTI->RPR1 );  /* Preset pending kept, not cleared */
+    TEST_ASSERT_EQUAL_HEX32( LL_EXTI_LINE_16, EXTI->FPR1 );
+}
+
+
+/**
+ * \brief   Exti_Set_LineActive() enables only the event mask of a configurable line.
+ *
+ * \details Activates line 16 with event mode and falling edge.
+ *
+ * \par Expected results
+ * - EXTI_REQUEST_OK is returned.
+ * - EMR1 contains the line 16 bit, IMR1 is 0.
+ * - FTSR1 contains the line 16 bit, RTSR1 is 0.
+ */
+void Ut_Exti_Set_LineActive_ConfigurableEvent_SetsEmrOnly( void )
+{
+    exti_LineConfig_t lineConfig = { .LineMode = EXTI_LINE_MODE_EVENT, .TriggerEdge = EXTI_TRIGGER_EDGE_FALLING };
+
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_OK, Exti_Set_LineActive( EXTI_LINE_PVD_AVD, &lineConfig ) );
+
+    TEST_ASSERT_EQUAL_HEX32( LL_EXTI_LINE_16, EXTI->EMR1 );
+    TEST_ASSERT_EQUAL_HEX32( 0u,              EXTI->IMR1 );
+    TEST_ASSERT_EQUAL_HEX32( LL_EXTI_LINE_16, EXTI->FTSR1 );
+    TEST_ASSERT_EQUAL_HEX32( 0u,              EXTI->RTSR1 );
+}
+
+
+/**
+ * \brief   Exti_Set_LineActive() enables both masks when mode is both.
+ *
+ * \details Activates line 16 with both mode and rising edge.
+ *
+ * \par Expected results
+ * - IMR1 and EMR1 both contain the line 16 bit.
+ */
+void Ut_Exti_Set_LineActive_ConfigurableBothMode_SetsImrAndEmr( void )
+{
+    exti_LineConfig_t lineConfig = { .LineMode = EXTI_LINE_MODE_BOTH, .TriggerEdge = EXTI_TRIGGER_EDGE_RAISING };
+
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_OK, Exti_Set_LineActive( EXTI_LINE_PVD_AVD, &lineConfig ) );
+
+    TEST_ASSERT_EQUAL_HEX32( LL_EXTI_LINE_16, EXTI->IMR1 );
+    TEST_ASSERT_EQUAL_HEX32( LL_EXTI_LINE_16, EXTI->EMR1 );
+}
+
+
+/**
+ * \brief   Exti_Set_LineActive() rejects a configurable line without trigger edge.
+ *
+ * \details Activates line 16 with \ref EXTI_TRIGGER_EDGE_NONE.
+ *
+ * \par Expected results
+ * - EXTI_REQUEST_ERROR is returned, IMR1 and RTSR1 are not written.
+ */
+void Ut_Exti_Set_LineActive_ConfigurableNoEdge_ReturnsErrorWithoutAccess( void )
+{
+    exti_LineConfig_t lineConfig = { .LineMode = EXTI_LINE_MODE_INTERRUPT, .TriggerEdge = EXTI_TRIGGER_EDGE_NONE };
+
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_ERROR, Exti_Set_LineActive( EXTI_LINE_PVD_AVD, &lineConfig ) );
+
+    TEST_ASSERT_EQUAL_HEX32( 0u, EXTI->IMR1 );
+    TEST_ASSERT_EQUAL_HEX32( 0u, EXTI->RTSR1 );
+}
+
+
+/**
+ * \brief   Exti_Set_LineActive() enables masks of a direct line without
+ *          touching trigger registers.
+ *
+ * \details Activates line 17 (RTC, direct) with both mode and
+ *          \ref EXTI_TRIGGER_EDGE_NONE.
+ *
+ * \par Expected results
+ * - EXTI_REQUEST_OK is returned.
+ * - IMR1 and EMR1 contain the line 17 bit.
+ * - RTSR1, FTSR1, RPR1 and FPR1 stay 0 (direct line has no trigger / pending).
+ */
+void Ut_Exti_Set_LineActive_DirectLine_SetsMasksOnly( void )
+{
+    exti_LineConfig_t lineConfig = { .LineMode = EXTI_LINE_MODE_BOTH, .TriggerEdge = EXTI_TRIGGER_EDGE_NONE };
+
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_OK, Exti_Set_LineActive( EXTI_LINE_RTC, &lineConfig ) );
+
+    TEST_ASSERT_EQUAL_HEX32( LL_EXTI_LINE_17, EXTI->IMR1 );
+    TEST_ASSERT_EQUAL_HEX32( LL_EXTI_LINE_17, EXTI->EMR1 );
+    TEST_ASSERT_EQUAL_HEX32( 0u, EXTI->RTSR1 );
+    TEST_ASSERT_EQUAL_HEX32( 0u, EXTI->FTSR1 );
+    TEST_ASSERT_EQUAL_HEX32( 0u, EXTI->RPR1 );
+    TEST_ASSERT_EQUAL_HEX32( 0u, EXTI->FPR1 );
+}
+
+
+/**
+ * \brief   Exti_Set_LineActive() rejects a direct line with a trigger edge.
+ *
+ * \details Activates line 17 with falling edge.
+ *
+ * \par Expected results
+ * - EXTI_REQUEST_ERROR is returned, IMR1 is not written.
+ */
+void Ut_Exti_Set_LineActive_DirectLineWithEdge_ReturnsErrorWithoutAccess( void )
+{
+    exti_LineConfig_t lineConfig = { .LineMode = EXTI_LINE_MODE_INTERRUPT, .TriggerEdge = EXTI_TRIGGER_EDGE_FALLING };
+
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_ERROR, Exti_Set_LineActive( EXTI_LINE_RTC, &lineConfig ) );
+
+    TEST_ASSERT_EQUAL_HEX32( 0u, EXTI->IMR1 );
+}
+
+
+/**
+ * \brief   Exti_Set_LineActive() maps lines 32 .. 63 to the second register group.
+ *
+ * \details Activates line 50 (DTS wake-up, configurable, register group 32 .. 63)
+ *          with interrupt mode and rising edge.
+ *
+ * \par Expected results
+ * - EXTI_REQUEST_OK is returned.
+ * - RTSR2 and IMR2 contain the line 50 bit, group 0 .. 31 registers stay 0.
+ */
+void Ut_Exti_Set_LineActive_RegGroup32_63_SetsSecondGroupRegisters( void )
+{
+    exti_LineConfig_t lineConfig = { .LineMode = EXTI_LINE_MODE_INTERRUPT, .TriggerEdge = EXTI_TRIGGER_EDGE_RAISING };
+
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_OK, Exti_Set_LineActive( EXTI_LINE_DTS_WKUP, &lineConfig ) );
+
+    TEST_ASSERT_EQUAL_HEX32( LL_EXTI_LINE_50, EXTI->RTSR2 );
+    TEST_ASSERT_EQUAL_HEX32( LL_EXTI_LINE_50, EXTI->IMR2 );
+    TEST_ASSERT_EQUAL_HEX32( 0u, EXTI->IMR1 );
+}
+
+
+/**
+ * \brief   Exti_Set_LineActive() rejects NULL configuration.
+ *
+ * \par Expected results
+ * - EXTI_REQUEST_ERROR is returned.
+ */
+void Ut_Exti_Set_LineActive_NullConfig_ReturnsError( void )
+{
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_ERROR, Exti_Set_LineActive( EXTI_LINE_PVD_AVD, NULL ) );
+}
+
+
+/**
+ * \brief   Exti_Set_LineActive() rejects an invalid line identification.
+ *
+ * \par Expected results
+ * - EXTI_REQUEST_ERROR is returned, no register is written.
+ */
+void Ut_Exti_Set_LineActive_InvalidLineId_ReturnsErrorWithoutAccess( void )
+{
+    exti_LineConfig_t lineConfig = { .LineMode = EXTI_LINE_MODE_INTERRUPT, .TriggerEdge = EXTI_TRIGGER_EDGE_BOTH };
+
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_ERROR, Exti_Set_LineActive( EXTI_LINE_CNT, &lineConfig ) );
+    TEST_ASSERT_EQUAL_HEX32( 0u, EXTI->IMR1 );
+}
+
+
+/**
+ * \brief   Exti_Set_LineActive() rejects an invalid line mode or trigger edge value.
+ *
+ * \par Expected results
+ * - EXTI_REQUEST_ERROR is returned in both cases.
+ */
+void Ut_Exti_Set_LineActive_InvalidModeOrEdge_ReturnsError( void )
+{
+    exti_LineConfig_t lineConfig = { .LineMode = (exti_LineMode_t)( EXTI_LINE_MODE_BOTH + 1u ),
+                                     .TriggerEdge = EXTI_TRIGGER_EDGE_BOTH };
+
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_ERROR, Exti_Set_LineActive( EXTI_LINE_PVD_AVD, &lineConfig ) );
+
+    lineConfig.LineMode    = EXTI_LINE_MODE_INTERRUPT;
+    lineConfig.TriggerEdge = (exti_TriggerEdge_t)( EXTI_TRIGGER_EDGE_NONE + 1u );
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_ERROR, Exti_Set_LineActive( EXTI_LINE_PVD_AVD, &lineConfig ) );
+}
+
+
+/**
+ * \brief   Exti_Set_LineInactive() disables masks and trigger of a configurable line.
+ *
+ * \details Presets IMR1, EMR1, RTSR1, FTSR1 bit of line 16, deactivates the line.
+ *
+ * \par Expected results
+ * - EXTI_REQUEST_OK is returned.
+ * - IMR1, EMR1, RTSR1, FTSR1 of line 16 are cleared, pending flags are not
+ *   touched (only \ref Exti_Set_LinePendingClear clears them).
+ */
+void Ut_Exti_Set_LineInactive_ConfigurableLine_ClearsMasksAndTrigger( void )
+{
+    EXTI->IMR1  = LL_EXTI_LINE_16;
+    EXTI->EMR1  = LL_EXTI_LINE_16;
+    EXTI->RTSR1 = LL_EXTI_LINE_16;
+    EXTI->FTSR1 = LL_EXTI_LINE_16;
+    EXTI->RPR1  = LL_EXTI_LINE_16;
+    EXTI->FPR1  = LL_EXTI_LINE_16;
+
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_OK, Exti_Set_LineInactive( EXTI_LINE_PVD_AVD ) );
+
+    TEST_ASSERT_EQUAL_HEX32( 0u, EXTI->IMR1 );
+    TEST_ASSERT_EQUAL_HEX32( 0u, EXTI->EMR1 );
+    TEST_ASSERT_EQUAL_HEX32( 0u, EXTI->RTSR1 );
+    TEST_ASSERT_EQUAL_HEX32( 0u, EXTI->FTSR1 );
+    TEST_ASSERT_EQUAL_HEX32( LL_EXTI_LINE_16, EXTI->RPR1 );  /* Preset pending kept, not cleared */
+    TEST_ASSERT_EQUAL_HEX32( LL_EXTI_LINE_16, EXTI->FPR1 );
+}
+
+
+/**
+ * \brief   Exti_Set_LineInactive() disables masks of a direct line without
+ *          touching pending flags.
+ *
+ * \details Presets IMR1, EMR1 and RPR1 bit of line 17, deactivates the line.
+ *
+ * \par Expected results
+ * - EXTI_REQUEST_OK is returned.
+ * - IMR1, EMR1 of line 17 are cleared.
+ * - RPR1 keeps the preset bit (direct line has no pending flag in the EXTI).
+ */
+void Ut_Exti_Set_LineInactive_DirectLine_ClearsMasksOnly( void )
+{
+    EXTI->IMR1 = LL_EXTI_LINE_17;
+    EXTI->EMR1 = LL_EXTI_LINE_17;
+    EXTI->RPR1 = LL_EXTI_LINE_17;
+
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_OK, Exti_Set_LineInactive( EXTI_LINE_RTC ) );
+
+    TEST_ASSERT_EQUAL_HEX32( 0u, EXTI->IMR1 );
+    TEST_ASSERT_EQUAL_HEX32( 0u, EXTI->EMR1 );
+    TEST_ASSERT_EQUAL_HEX32( LL_EXTI_LINE_17, EXTI->RPR1 );
+}
+
+
+/**
+ * \brief   Exti_Set_LineInactive() rejects an invalid line identification.
+ *
+ * \par Expected results
+ * - EXTI_REQUEST_ERROR is returned.
+ */
+void Ut_Exti_Set_LineInactive_InvalidLineId_ReturnsError( void )
+{
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_ERROR, Exti_Set_LineInactive( EXTI_LINE_CNT ) );
+}
+
+
+/**
+ * \brief   Exti_Set_LinePendingClear() clears pending flags of a configurable line.
+ *
+ * \details Clears pending flags of line 16.
+ *
+ * \par Expected results
+ * - EXTI_REQUEST_OK is returned, RPR1 and FPR1 of line 16 are written.
+ */
+void Ut_Exti_Set_LinePendingClear_ConfigurableLine_ClearsFlags( void )
+{
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_OK, Exti_Set_LinePendingClear( EXTI_LINE_PVD_AVD ) );
+
+    TEST_ASSERT_EQUAL_HEX32( LL_EXTI_LINE_16, EXTI->RPR1 );
+    TEST_ASSERT_EQUAL_HEX32( LL_EXTI_LINE_16, EXTI->FPR1 );
+}
+
+
+/**
+ * \brief   Exti_Set_LinePendingClear() rejects a direct line.
+ *
+ * \par Expected results
+ * - EXTI_REQUEST_ERROR is returned, RPR1 is not written.
+ */
+void Ut_Exti_Set_LinePendingClear_DirectLine_ReturnsErrorWithoutAccess( void )
+{
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_ERROR, Exti_Set_LinePendingClear( EXTI_LINE_RTC ) );
+
+    TEST_ASSERT_EQUAL_HEX32( 0u, EXTI->RPR1 );
+}
+
+
+/**
+ * \brief   Exti_Set_LinePendingClear() rejects an invalid line identification.
+ *
+ * \par Expected results
+ * - EXTI_REQUEST_ERROR is returned.
+ */
+void Ut_Exti_Set_LinePendingClear_InvalidLineId_ReturnsError( void )
+{
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_ERROR, Exti_Set_LinePendingClear( EXTI_LINE_CNT ) );
+}
+
+
+/**
+ * \brief   Exti_Get_LineType() reports a configurable line.
+ *
+ * \par Expected results
+ * - EXTI_REQUEST_OK is returned, lineType is \ref EXTI_LINE_TYPE_CONFIGURABLE.
+ */
+void Ut_Exti_Get_LineType_ConfigurableLine_ReturnsConfigurable( void )
+{
+    exti_LineType_t lineType;
+
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_OK, Exti_Get_LineType( EXTI_LINE_PVD_AVD, &lineType ) );
+    TEST_ASSERT_EQUAL( EXTI_LINE_TYPE_CONFIGURABLE, lineType );
+}
+
+
+/**
+ * \brief   Exti_Get_LineType() reports a direct line.
+ *
+ * \par Expected results
+ * - EXTI_REQUEST_OK is returned, lineType is \ref EXTI_LINE_TYPE_DIRECT.
+ */
+void Ut_Exti_Get_LineType_DirectLine_ReturnsDirect( void )
+{
+    exti_LineType_t lineType;
+
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_OK, Exti_Get_LineType( EXTI_LINE_RTC, &lineType ) );
+    TEST_ASSERT_EQUAL( EXTI_LINE_TYPE_DIRECT, lineType );
+}
+
+
+/**
+ * \brief   Exti_Get_LineType() rejects NULL pointer and invalid line identification.
+ *
+ * \par Expected results
+ * - EXTI_REQUEST_ERROR is returned in both cases.
+ */
+void Ut_Exti_Get_LineType_NullPtrOrInvalidLineId_ReturnsError( void )
+{
+    exti_LineType_t lineType;
+
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_ERROR, Exti_Get_LineType( EXTI_LINE_PVD_AVD, NULL ) );
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_ERROR, Exti_Get_LineType( EXTI_LINE_CNT, &lineType ) );
+}
+
+
+/**
+ * \brief   Exti_Get_LineType() reports a type for every line of the device line.
+ *
+ * \details Reads the type of every line of \ref exti_LineId_t.
+ *
+ * \par Expected results
+ * - EXTI_REQUEST_OK is returned for every line present on the device line. The
+ *   compile-time assertion in Exti.c already checks that the table size matches
+ *   \ref EXTI_LINE_CNT of the device line, this test proves every row of the
+ *   table is reachable by its line identification at run time (presence /
+ *   absence of a line is decided by the device line macros guarding the row).
+ */
+void Ut_Exti_Get_LineType_AllLines_ReturnsOkForEveryLine( void )
+{
+    for( uint32_t lineId = 0u; EXTI_LINE_CNT > lineId; lineId++ )
+    {
+        exti_LineType_t lineType;
+
+        TEST_ASSERT_EQUAL( EXTI_REQUEST_OK, Exti_Get_LineType( (exti_LineId_t)lineId, &lineType ) );
+    }
+}
+
+
+/**
+ * \brief   Exti_Get_LinePending() reports rising, falling, both and no edge of a
+ *          configurable line.
+ *
+ * \details Presets RPR1 / FPR1 bit of line 16 in every combination.
+ *
+ * \par Expected results
+ * - EXTI_REQUEST_OK is returned.
+ * - Reported edge matches the preset combination, flags are not cleared by the read.
+ */
+void Ut_Exti_Get_LinePending_ConfigurableLine_ReturnsPendingEdge( void )
+{
+    exti_TriggerEdge_t pendingEdge;
+
+    EXTI->RPR1 = LL_EXTI_LINE_16;
+    EXTI->FPR1 = 0u;
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_OK, Exti_Get_LinePending( EXTI_LINE_PVD_AVD, &pendingEdge ) );
+    TEST_ASSERT_EQUAL( EXTI_TRIGGER_EDGE_RAISING, pendingEdge );
+    TEST_ASSERT_EQUAL_HEX32( LL_EXTI_LINE_16, EXTI->RPR1 );  /* Not cleared by the read */
+
+    EXTI->RPR1 = 0u;
+    EXTI->FPR1 = LL_EXTI_LINE_16;
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_OK, Exti_Get_LinePending( EXTI_LINE_PVD_AVD, &pendingEdge ) );
+    TEST_ASSERT_EQUAL( EXTI_TRIGGER_EDGE_FALLING, pendingEdge );
+
+    EXTI->RPR1 = LL_EXTI_LINE_16;
+    EXTI->FPR1 = LL_EXTI_LINE_16;
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_OK, Exti_Get_LinePending( EXTI_LINE_PVD_AVD, &pendingEdge ) );
+    TEST_ASSERT_EQUAL( EXTI_TRIGGER_EDGE_BOTH, pendingEdge );
+
+    EXTI->RPR1 = 0u;
+    EXTI->FPR1 = 0u;
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_OK, Exti_Get_LinePending( EXTI_LINE_PVD_AVD, &pendingEdge ) );
+    TEST_ASSERT_EQUAL( EXTI_TRIGGER_EDGE_NONE, pendingEdge );
+}
+
+
+/**
+ * \brief   Exti_Get_LinePending() rejects a direct line.
+ *
+ * \par Expected results
+ * - EXTI_REQUEST_ERROR is returned.
+ */
+void Ut_Exti_Get_LinePending_DirectLine_ReturnsErrorWithoutAccess( void )
+{
+    exti_TriggerEdge_t pendingEdge = EXTI_TRIGGER_EDGE_NONE;
+
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_ERROR, Exti_Get_LinePending( EXTI_LINE_RTC, &pendingEdge ) );
+}
+
+
+/**
+ * \brief   Exti_Get_LinePending() rejects NULL pointer and invalid line identification.
+ *
+ * \par Expected results
+ * - EXTI_REQUEST_ERROR is returned in both cases.
+ */
+void Ut_Exti_Get_LinePending_NullPtrOrInvalidLineId_ReturnsError( void )
+{
+    exti_TriggerEdge_t pendingEdge;
+
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_ERROR, Exti_Get_LinePending( EXTI_LINE_PVD_AVD, NULL ) );
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_ERROR, Exti_Get_LinePending( EXTI_LINE_CNT, &pendingEdge ) );
 }
 
 /* =========================== LOCAL FUNCTIONS ============================== */

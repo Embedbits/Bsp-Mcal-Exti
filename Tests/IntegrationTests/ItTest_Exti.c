@@ -49,9 +49,10 @@ static void It_Exti_Callback        ( exti_TriggerEdge_t triggerEdge );
     #define IT_EXTI_GPIO_PORT               ( GPIO_PORT_A )
     #define IT_EXTI_GPIO_PIN                ( GPIO_PIN_ID_8 )
 
-    /** Arduino D15 (PB8) - same EXTI line on other port, not connected on the board */
-    #define IT_EXTI_OTHER_PORT              ( EXTI_PORT_B )
-    #define IT_EXTI_OTHER_GPIO_PORT         ( GPIO_PORT_B )
+    /** PC8 - same EXTI line on other port, not connected on the board (PB8 is an I2C line of the
+     *  common board wiring with an external pull-up) */
+    #define IT_EXTI_OTHER_PORT              ( EXTI_PORT_C )
+    #define IT_EXTI_OTHER_GPIO_PORT         ( GPIO_PORT_C )
 
 #elif defined(IT_BOARD_STM32H562xI) || \
       defined(IT_BOARD_STM32H563xI) || \
@@ -64,9 +65,10 @@ static void It_Exti_Callback        ( exti_TriggerEdge_t triggerEdge );
     #define IT_EXTI_GPIO_PORT               ( GPIO_PORT_E )
     #define IT_EXTI_GPIO_PIN                ( GPIO_PIN_ID_9 )
 
-    /** Arduino D14 (PB9) - same EXTI line on other port, not connected on the board */
-    #define IT_EXTI_OTHER_PORT              ( EXTI_PORT_B )
-    #define IT_EXTI_OTHER_GPIO_PORT         ( GPIO_PORT_B )
+    /** PC9 - same EXTI line on other port, not connected on the board (PB9 is an I2C line of the
+     *  common board wiring with an external pull-up) */
+    #define IT_EXTI_OTHER_PORT              ( EXTI_PORT_C )
+    #define IT_EXTI_OTHER_GPIO_PORT         ( GPIO_PORT_C )
 
 #else
     #error "Board of Exti integration tests is not defined (INTEGRATION_TEST_BOARD)."
@@ -376,6 +378,36 @@ void It_Exti_Init_InvalidConfig_ReturnsError( void )
     TEST_ASSERT_EQUAL( EXTI_REQUEST_ERROR, Exti_Init( &extiConfig ) );
 }
 
+/*------------------------- Peripheral event lines ----------------------------*/
+
+/**
+ * \brief   Exti_Set_LineActive() configures line 16 (PVD/AVD) and the
+ *          configuration is readable back from the real EXTI registers.
+ *
+ * \details Activates line 16 with interrupt mode and rising edge, clears its
+ *          pending flags, then deactivates it. PVD/AVD monitoring itself is not
+ *          enabled by this test (PWR module), so the line is not expected to
+ *          assert - the test proves only the register access of the peripheral
+ *          event line API on real hardware.
+ *
+ * \par Expected results
+ * - Exti_Get_LineType() reports EXTI_LINE_TYPE_CONFIGURABLE.
+ * - Exti_Set_LineActive(), Exti_Set_LinePendingClear() and Exti_Set_LineInactive()
+ *   all return EXTI_REQUEST_OK.
+ */
+void It_Exti_SetLineActive_PvdAvd_ConfigAndReadback( void )
+{
+    exti_LineConfig_t lineConfig = { .LineMode = EXTI_LINE_MODE_INTERRUPT, .TriggerEdge = EXTI_TRIGGER_EDGE_RAISING };
+    exti_LineType_t   lineType   = EXTI_LINE_TYPE_DIRECT;
+
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_OK, Exti_Get_LineType( EXTI_LINE_PVD_AVD, &lineType ) );
+    TEST_ASSERT_EQUAL( EXTI_LINE_TYPE_CONFIGURABLE, lineType );
+
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_OK, Exti_Set_LineActive( EXTI_LINE_PVD_AVD, &lineConfig ) );
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_OK, Exti_Set_LinePendingClear( EXTI_LINE_PVD_AVD ) );
+    TEST_ASSERT_EQUAL( EXTI_REQUEST_OK, Exti_Set_LineInactive( EXTI_LINE_PVD_AVD ) );
+}
+
 /* ========================== LOCAL FUNCTIONS =============================== */
 
 /**
@@ -425,7 +457,10 @@ static void It_Exti_Set_PinPull( gpio_PortId_t portId, gpio_PinPullCfg_t pinPull
  */
 static void It_Exti_Wait_Callback( uint32_t expectedCnt )
 {
-    for( volatile uint32_t loopIdx = 0u; ( IT_EXTI_WAIT_LOOPS > loopIdx ) && ( expectedCnt > itExti_CallbackCnt ); loopIdx++ )
+    for( volatile uint32_t loopIdx = 0u;
+         ( IT_EXTI_WAIT_LOOPS > loopIdx ) &&
+         ( expectedCnt > itExti_CallbackCnt );
+         loopIdx++ )
     {
         /* Busy wait */
     }

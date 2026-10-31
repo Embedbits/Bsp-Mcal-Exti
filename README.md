@@ -4,6 +4,11 @@ The **EXTI (External Interrupt) MCAL module** provides an abstraction layer for 
 This module is part of the MCAL layer and ensures a unified API across different STM32 families.  
 Different families are maintained in separate branches; users can switch to the appropriate branch for their MCU family.
 
+> **STM32H5 status**: branch `Dev/STM32H5/PeripheralLines`. GPIO lines 0 .. 15 and
+> peripheral event lines 16 .. 66 (interrupt / event mask, edge configuration,
+> pending flags) are implemented. Unit tests run on 12 STM32H5 device lines,
+> integration tests are compiled only (not run on hardware).
+
 ---
 
 ## Features
@@ -38,6 +43,36 @@ Different families are maintained in separate branches; users can switch to the 
 
 - `exti_RequestState_t Exti_Get_DefaultConfig ( exti_PeriphConfig_t * const extiConfig );`  
   Retrieves a default configuration structure for EXTI initialization.
+
+---
+
+### Peripheral Event Lines (STM32H5, lines 16 .. 66)
+
+Peripheral event lines (EXTI lines 16 .. 66, named by the connected peripheral in
+`exti_LineId_t`) are either configurable (own edge trigger and pending flag in the
+EXTI) or direct (status reported by the peripheral itself, no trigger / pending
+flag in the EXTI). The NVIC vector of a peripheral event line belongs to the
+module of the peripheral, not to Exti.
+
+- `exti_RequestState_t Exti_Set_LineActive ( exti_LineId_t lineId, const exti_LineConfig_t * const lineConfig );`  
+  Activates a peripheral event line as wake-up with interrupt, event or both.
+
+- `exti_RequestState_t Exti_Set_LineInactive ( exti_LineId_t lineId );`  
+  Deactivates a peripheral event line.
+
+- `exti_RequestState_t Exti_Set_LinePendingClear ( exti_LineId_t lineId );`  
+  Clears the pending flags of a configurable peripheral event line.
+
+- `exti_RequestState_t Exti_Get_LineType ( exti_LineId_t lineId, exti_LineType_t * const lineType );`  
+  Reports whether a peripheral event line is configurable or direct.
+
+- `exti_RequestState_t Exti_Get_LinePending ( exti_LineId_t lineId, exti_TriggerEdge_t * const pendingEdge );`  
+  Reads the pending edge(s) of a configurable peripheral event line.
+
+`Exti_Set_LineActive` and `Exti_Set_LineInactive` never clear pending flags as a
+side effect - `Exti_Set_LinePendingClear` is the only function that clears them.
+A line pending from before an activation/deactivation stays pending (sticky,
+same as other sticky flags of the project).
 
 ---
 
