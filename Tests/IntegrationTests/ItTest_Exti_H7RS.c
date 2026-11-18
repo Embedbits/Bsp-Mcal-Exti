@@ -30,10 +30,13 @@
 
 /* ======================= FORWARD DECLARATIONS ============================= */
 
-static void It_Exti_Init_Line       ( exti_PortId_t portId, exti_TriggerEdge_t triggerEdge, exti_PinPullCfg_t pinPull, exti_ExtiIsrCallback_t *callback );
-static void It_Exti_Set_PinPull     ( gpio_PortId_t portId, gpio_PinPullCfg_t pinPull );
-static void It_Exti_Wait_Callback   ( uint32_t expectedCnt );
-static void It_Exti_Callback        ( exti_TriggerEdge_t triggerEdge );
+static void ItExti_Init_Line        ( exti_PortId_t portId,
+                                      exti_TriggerEdge_t triggerEdge,
+                                      exti_PinPullCfg_t pinPull,
+                                      exti_ExtiIsrCallback_t *callback );
+static void ItExti_Set_PinPull      ( gpio_PortId_t portId, gpio_PinPullCfg_t pinPull );
+static void ItExti_Wait_Callback    ( uint32_t expectedCnt );
+static void ItExti_Callback         ( exti_TriggerEdge_t triggerEdge );
 
 /* ========================= SYMBOLIC CONSTANTS ============================= */
 
@@ -44,13 +47,15 @@ static void It_Exti_Callback        ( exti_TriggerEdge_t triggerEdge );
     defined(IT_BOARD_STM32H7S3x8) || \
     defined(IT_BOARD_STM32H7S7x8)
 
-    /** Arduino D6 (PE9) - not connected on the board */
-    #define IT_EXTI_PORT                    ( EXTI_PORT_E )
-    #define IT_EXTI_PIN                     ( EXTI_PIN_9 )
-    #define IT_EXTI_GPIO_PORT               ( GPIO_PORT_E )
-    #define IT_EXTI_GPIO_PIN                ( GPIO_PIN_ID_9 )
+    /** PC4 - not connected on the board and not a pin of the wires of the common board wiring
+     *  (free pin of the check of the board wiring) */
+    #define IT_EXTI_PORT                    ( EXTI_PORT_C )
+    #define IT_EXTI_PIN                     ( EXTI_PIN_4 )
+    #define IT_EXTI_GPIO_PORT               ( GPIO_PORT_C )
+    #define IT_EXTI_GPIO_PIN                ( GPIO_PIN_ID_4 )
 
-    /** Arduino D14 (PB9) - same EXTI line on other port, not connected on the board */
+    /** PB4 - same EXTI line on other port, not connected on the board and not a pin of the wires of the
+     *  common board wiring (PB9 is the SDA line of the I2c wires) */
     #define IT_EXTI_OTHER_PORT              ( EXTI_PORT_B )
     #define IT_EXTI_OTHER_GPIO_PORT         ( GPIO_PORT_B )
 
@@ -111,10 +116,10 @@ void tearDown( void )
  */
 void It_Exti_Init_RisingEdge_CallbackWithRisingEdge( void )
 {
-    It_Exti_Init_Line( IT_EXTI_PORT, EXTI_TRIGGER_EDGE_RAISING, EXTI_PIN_PULL_DOWN, It_Exti_Callback );
+    ItExti_Init_Line( IT_EXTI_PORT, EXTI_TRIGGER_EDGE_RAISING, EXTI_PIN_PULL_DOWN, ItExti_Callback );
 
-    It_Exti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_UP );
-    It_Exti_Wait_Callback( 1u );
+    ItExti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_UP );
+    ItExti_Wait_Callback( 1u );
 
     TEST_ASSERT_EQUAL_UINT32( 1u, itExti_CallbackCnt );
     TEST_ASSERT_EQUAL( EXTI_TRIGGER_EDGE_RAISING, itExti_EdgeLog[ 0u ] );
@@ -132,10 +137,10 @@ void It_Exti_Init_RisingEdge_CallbackWithRisingEdge( void )
  */
 void It_Exti_Init_FallingEdge_CallbackWithFallingEdge( void )
 {
-    It_Exti_Init_Line( IT_EXTI_PORT, EXTI_TRIGGER_EDGE_FALLING, EXTI_PIN_PULL_UP, It_Exti_Callback );
+    ItExti_Init_Line( IT_EXTI_PORT, EXTI_TRIGGER_EDGE_FALLING, EXTI_PIN_PULL_UP, ItExti_Callback );
 
-    It_Exti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_DOWN );
-    It_Exti_Wait_Callback( 1u );
+    ItExti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_DOWN );
+    ItExti_Wait_Callback( 1u );
 
     TEST_ASSERT_EQUAL_UINT32( 1u, itExti_CallbackCnt );
     TEST_ASSERT_EQUAL( EXTI_TRIGGER_EDGE_FALLING, itExti_EdgeLog[ 0u ] );
@@ -155,14 +160,14 @@ void It_Exti_Init_FallingEdge_CallbackWithFallingEdge( void )
  */
 void It_Exti_Init_RisingEdge_FallingEdgeIgnored( void )
 {
-    It_Exti_Init_Line( IT_EXTI_PORT, EXTI_TRIGGER_EDGE_RAISING, EXTI_PIN_PULL_UP, It_Exti_Callback );
+    ItExti_Init_Line( IT_EXTI_PORT, EXTI_TRIGGER_EDGE_RAISING, EXTI_PIN_PULL_UP, ItExti_Callback );
 
-    It_Exti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_DOWN );
-    It_Exti_Wait_Callback( 1u );
+    ItExti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_DOWN );
+    ItExti_Wait_Callback( 1u );
     TEST_ASSERT_EQUAL_UINT32( 0u, itExti_CallbackCnt );
 
-    It_Exti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_UP );
-    It_Exti_Wait_Callback( 1u );
+    ItExti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_UP );
+    ItExti_Wait_Callback( 1u );
     TEST_ASSERT_EQUAL_UINT32( 1u, itExti_CallbackCnt );
     TEST_ASSERT_EQUAL( EXTI_TRIGGER_EDGE_RAISING, itExti_EdgeLog[ 0u ] );
 }
@@ -179,14 +184,14 @@ void It_Exti_Init_RisingEdge_FallingEdgeIgnored( void )
  */
 void It_Exti_Init_BothEdges_CallbackForEachEdge( void )
 {
-    It_Exti_Init_Line( IT_EXTI_PORT, EXTI_TRIGGER_EDGE_BOTH, EXTI_PIN_PULL_DOWN, It_Exti_Callback );
+    ItExti_Init_Line( IT_EXTI_PORT, EXTI_TRIGGER_EDGE_BOTH, EXTI_PIN_PULL_DOWN, ItExti_Callback );
 
-    It_Exti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_UP );
-    It_Exti_Wait_Callback( 1u );
-    It_Exti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_DOWN );
-    It_Exti_Wait_Callback( 2u );
-    It_Exti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_UP );
-    It_Exti_Wait_Callback( 3u );
+    ItExti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_UP );
+    ItExti_Wait_Callback( 1u );
+    ItExti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_DOWN );
+    ItExti_Wait_Callback( 2u );
+    ItExti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_UP );
+    ItExti_Wait_Callback( 3u );
 
     TEST_ASSERT_EQUAL_UINT32( 3u, itExti_CallbackCnt );
     TEST_ASSERT_EQUAL( EXTI_TRIGGER_EDGE_RAISING, itExti_EdgeLog[ 0u ] );
@@ -211,7 +216,7 @@ void It_Exti_Init_PinPullUp_PinConfiguredAsInputWithPull( void )
     gpio_PinPullCfg_t pinPull  = GPIO_PIN_PULL_NONE;
     gpio_PinLevel_t   pinLevel = GPIO_PIN_LEVEL_LOW;
 
-    It_Exti_Init_Line( IT_EXTI_PORT, EXTI_TRIGGER_EDGE_RAISING, EXTI_PIN_PULL_UP, It_Exti_Callback );
+    ItExti_Init_Line( IT_EXTI_PORT, EXTI_TRIGGER_EDGE_RAISING, EXTI_PIN_PULL_UP, ItExti_Callback );
 
     TEST_ASSERT_EQUAL( GPIO_REQUEST_OK, Gpio_Get_PinMode( IT_EXTI_GPIO_PORT, IT_EXTI_GPIO_PIN, &pinMode ) );
     TEST_ASSERT_EQUAL( GPIO_PIN_MODE_INPUT, pinMode );
@@ -219,7 +224,7 @@ void It_Exti_Init_PinPullUp_PinConfiguredAsInputWithPull( void )
     TEST_ASSERT_EQUAL( GPIO_REQUEST_OK, Gpio_Get_PinPull( IT_EXTI_GPIO_PORT, IT_EXTI_GPIO_PIN, &pinPull ) );
     TEST_ASSERT_EQUAL( GPIO_PIN_PULL_UP, pinPull );
 
-    It_Exti_Wait_Callback( 1u );
+    ItExti_Wait_Callback( 1u );
     TEST_ASSERT_EQUAL( GPIO_REQUEST_OK, Gpio_Get_PinLevel( IT_EXTI_GPIO_PORT, IT_EXTI_GPIO_PIN, &pinLevel ) );
     TEST_ASSERT_EQUAL( GPIO_PIN_LEVEL_HIGH, pinLevel );
 }
@@ -243,7 +248,7 @@ void It_Exti_Init_OtherPortSameLine_EdgeOnPinIgnored( void )
     gpio_Config_t gpioConfig = { 0u };
 
     /* Line connected to other port */
-    It_Exti_Init_Line( IT_EXTI_OTHER_PORT, EXTI_TRIGGER_EDGE_BOTH, EXTI_PIN_PULL_DOWN, It_Exti_Callback );
+    ItExti_Init_Line( IT_EXTI_OTHER_PORT, EXTI_TRIGGER_EDGE_BOTH, EXTI_PIN_PULL_DOWN, ItExti_Callback );
 
     /* Edges on the pin of the same line number on the not selected port */
     gpioConfig.PortId   = IT_EXTI_GPIO_PORT;
@@ -253,15 +258,15 @@ void It_Exti_Init_OtherPortSameLine_EdgeOnPinIgnored( void )
     gpioConfig.PinSpeed = GPIO_PIN_SPEED_LOW;
     TEST_ASSERT_EQUAL( GPIO_REQUEST_OK, Gpio_Init( &gpioConfig ) );
 
-    It_Exti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_UP );
-    It_Exti_Wait_Callback( 1u );
-    It_Exti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_DOWN );
-    It_Exti_Wait_Callback( 1u );
+    ItExti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_UP );
+    ItExti_Wait_Callback( 1u );
+    ItExti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_DOWN );
+    ItExti_Wait_Callback( 1u );
     TEST_ASSERT_EQUAL_UINT32( 0u, itExti_CallbackCnt );
 
     /* Edge on the selected port is detected */
-    It_Exti_Set_PinPull( IT_EXTI_OTHER_GPIO_PORT, GPIO_PIN_PULL_UP );
-    It_Exti_Wait_Callback( 1u );
+    ItExti_Set_PinPull( IT_EXTI_OTHER_GPIO_PORT, GPIO_PIN_PULL_UP );
+    ItExti_Wait_Callback( 1u );
     TEST_ASSERT_EQUAL_UINT32( 1u, itExti_CallbackCnt );
     TEST_ASSERT_EQUAL( EXTI_TRIGGER_EDGE_RAISING, itExti_EdgeLog[ 0u ] );
 }
@@ -283,17 +288,17 @@ void It_Exti_Init_OtherPortSameLine_EdgeOnPinIgnored( void )
 void It_Exti_Init_WithoutCallback_EdgeHandledWithoutCallback( void )
 {
     /* Edge without callback - flag is cleared by the handler */
-    It_Exti_Init_Line( IT_EXTI_PORT, EXTI_TRIGGER_EDGE_RAISING, EXTI_PIN_PULL_DOWN, EXTI_NULL_PTR );
-    It_Exti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_UP );
-    It_Exti_Wait_Callback( 1u );
+    ItExti_Init_Line( IT_EXTI_PORT, EXTI_TRIGGER_EDGE_RAISING, EXTI_PIN_PULL_DOWN, EXTI_NULL_PTR );
+    ItExti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_UP );
+    ItExti_Wait_Callback( 1u );
 
     /* Re-initialization with callback - no pending edge from previous configuration */
-    It_Exti_Init_Line( IT_EXTI_PORT, EXTI_TRIGGER_EDGE_RAISING, EXTI_PIN_PULL_DOWN, It_Exti_Callback );
-    It_Exti_Wait_Callback( 1u );
+    ItExti_Init_Line( IT_EXTI_PORT, EXTI_TRIGGER_EDGE_RAISING, EXTI_PIN_PULL_DOWN, ItExti_Callback );
+    ItExti_Wait_Callback( 1u );
     TEST_ASSERT_EQUAL_UINT32( 0u, itExti_CallbackCnt );
 
-    It_Exti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_UP );
-    It_Exti_Wait_Callback( 1u );
+    ItExti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_UP );
+    ItExti_Wait_Callback( 1u );
     TEST_ASSERT_EQUAL_UINT32( 1u, itExti_CallbackCnt );
 }
 
@@ -314,7 +319,7 @@ void It_Exti_Deinit_InitializedLine_EdgesIgnoredPinAnalog( void )
     exti_PeriphConfig_t extiConfig;
     gpio_PinMode_t      pinMode = GPIO_PIN_MODE_INPUT;
 
-    It_Exti_Init_Line( IT_EXTI_PORT, EXTI_TRIGGER_EDGE_BOTH, EXTI_PIN_PULL_DOWN, It_Exti_Callback );
+    ItExti_Init_Line( IT_EXTI_PORT, EXTI_TRIGGER_EDGE_BOTH, EXTI_PIN_PULL_DOWN, ItExti_Callback );
 
     TEST_ASSERT_EQUAL( EXTI_REQUEST_OK, Exti_Get_DefaultConfig( &extiConfig ) );
     extiConfig.ExtiPin  = IT_EXTI_PIN;
@@ -326,10 +331,10 @@ void It_Exti_Deinit_InitializedLine_EdgesIgnoredPinAnalog( void )
 
     /* Input buffer enabled again, edges must not be reported */
     TEST_ASSERT_EQUAL( GPIO_REQUEST_OK, Gpio_Set_PinMode( IT_EXTI_GPIO_PORT, IT_EXTI_GPIO_PIN, GPIO_PIN_MODE_INPUT ) );
-    It_Exti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_UP );
-    It_Exti_Wait_Callback( 1u );
-    It_Exti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_DOWN );
-    It_Exti_Wait_Callback( 1u );
+    ItExti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_UP );
+    ItExti_Wait_Callback( 1u );
+    ItExti_Set_PinPull( IT_EXTI_GPIO_PORT, GPIO_PIN_PULL_DOWN );
+    ItExti_Wait_Callback( 1u );
 
     TEST_ASSERT_EQUAL_UINT32( 0u, itExti_CallbackCnt );
 }
@@ -372,7 +377,10 @@ void It_Exti_Init_InvalidConfig_ReturnsError( void )
  * \param pinPull     [in]: Pull resistor (initial pin level)
  * \param callback    [in]: User callback, can be NULL
  */
-static void It_Exti_Init_Line( exti_PortId_t portId, exti_TriggerEdge_t triggerEdge, exti_PinPullCfg_t pinPull, exti_ExtiIsrCallback_t *callback )
+static void ItExti_Init_Line( exti_PortId_t portId,
+                              exti_TriggerEdge_t triggerEdge,
+                              exti_PinPullCfg_t pinPull,
+                              exti_ExtiIsrCallback_t *callback )
 {
     exti_PeriphConfig_t extiConfig;
 
@@ -386,7 +394,7 @@ static void It_Exti_Init_Line( exti_PortId_t portId, exti_TriggerEdge_t triggerE
     TEST_ASSERT_EQUAL( EXTI_REQUEST_OK, Exti_Init( &extiConfig ) );
 
     /* Edge caused by the pin configuration itself is not part of the tests */
-    It_Exti_Wait_Callback( IT_EXTI_EDGE_LOG_SIZE );
+    ItExti_Wait_Callback( IT_EXTI_EDGE_LOG_SIZE );
     itExti_CallbackCnt = 0u;
 }
 
@@ -397,7 +405,7 @@ static void It_Exti_Init_Line( exti_PortId_t portId, exti_TriggerEdge_t triggerE
  * \param portId  [in]: GPIO port of the pin with IT_EXTI_GPIO_PIN number
  * \param pinPull [in]: Pull resistor
  */
-static void It_Exti_Set_PinPull( gpio_PortId_t portId, gpio_PinPullCfg_t pinPull )
+static void ItExti_Set_PinPull( gpio_PortId_t portId, gpio_PinPullCfg_t pinPull )
 {
     TEST_ASSERT_EQUAL( GPIO_REQUEST_OK, Gpio_Set_PinPull( portId, IT_EXTI_GPIO_PIN, pinPull ) );
 }
@@ -409,9 +417,12 @@ static void It_Exti_Set_PinPull( gpio_PortId_t portId, gpio_PinPullCfg_t pinPull
  *
  * \param expectedCnt [in]: Required count of callback calls
  */
-static void It_Exti_Wait_Callback( uint32_t expectedCnt )
+static void ItExti_Wait_Callback( uint32_t expectedCnt )
 {
-    for( volatile uint32_t loopIdx = 0u; ( IT_EXTI_WAIT_LOOPS > loopIdx ) && ( expectedCnt > itExti_CallbackCnt ); loopIdx++ )
+    for( volatile uint32_t loopIdx = 0u;
+         ( IT_EXTI_WAIT_LOOPS > loopIdx ) &&
+         ( expectedCnt > itExti_CallbackCnt );
+         loopIdx++ )
     {
         /* Busy wait */
     }
@@ -428,7 +439,7 @@ static void It_Exti_Wait_Callback( uint32_t expectedCnt )
  *
  * \param triggerEdge [in]: Detected edge
  */
-static void It_Exti_Callback( exti_TriggerEdge_t triggerEdge )
+static void ItExti_Callback( exti_TriggerEdge_t triggerEdge )
 {
     if( IT_EXTI_EDGE_LOG_SIZE > itExti_CallbackCnt )
     {
